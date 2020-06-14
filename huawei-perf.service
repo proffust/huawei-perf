@@ -1,0 +1,11 @@
+[Unit]
+Description=Huawei performance to Graphite
+
+[Service]
+Type=forking
+ExecStart=/usr/sbin/huawei-perf -config /etc/huawei-perf/config.yml
+ExecStop=/bin/kill -s QUIT $MAINPID
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

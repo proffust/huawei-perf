@@ -1,0 +1,39 @@
+default:
+  username: "monitoring"
+  password: "password"
+  port: 8088
+  interval: 60
+  graphite:
+    address: "127.0.0.1:2003"
+    prefix: "huawei.perf"
+
+groups:
+  -
+    groupname: "M10"
+    arrays:
+      - name: "i04-hwos3-GA000003"
+        address: "10.62.192.201"
+      - name: "i04-hwos5500v5-0008"
+        address: "10.62.193.42"
+      - name: "i04-hwos5600v5-0008"
+        address: "10.62.193.40"
+  -
+    groupname: "ADL"
+    arrays:
+      - name: "i42-hwos5600fv5-0002"
+        address: "10.64.192.100"
+      - name: "i42-hwos5600v5-0007"
+        address: "10.64.192.102"
+      - name: "i42-hwos5500v5-0009"
+        address: "10.64.192.104"
+logging:
+  - logger: ""
+    file: "stdout"
+    level: "debug"
+    encoding: "console"
+    encodingTime: "iso8601"
+    encodingDuration: "seconds"
+  - logger: ""
+    file: "carbonapi.log"
+    level: "info"
+    encoding: "json"
