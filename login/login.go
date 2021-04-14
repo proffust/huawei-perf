@@ -2,48 +2,67 @@ package login
 import (
   "net/http"
   "crypto/tls"
-  "fmt"
+  //"fmt"
   "strconv"
   "bytes"
   "encoding/json"
   "io/ioutil"
+  "github.com/sirupsen/logrus"
+  "errors"
 )
 // TODO: продумать передачу дефолтных и уникальных для массива параметров
-func Login(ArrayUsername *string, ArrayPassword *string, ArrayAddress string, ArrayPort *int) (*http.Cookie, string, string) {
+func Login(log *logrus.Logger, ArrayUsername *string, ArrayPassword *string, ArrayAddress string, ArrayPort *int) (*http.Cookie, string, string, error) {
   urlString := "https://" + ArrayAddress + ":"+ strconv.Itoa(*ArrayPort) + "/deviceManager/rest/xxxxx/sessions"
+  //отключение проверки безопасности для client
   tr := &http.Transport{
         TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-    }
+  }
   client := &http.Client{Transport: tr}
+
   data := map[string]string{"username": *ArrayUsername, "password": *ArrayPassword, "scope": "0"}
   jsonValue, _ := json.Marshal(data)
   req, err := http.NewRequest("POST", urlString, bytes.NewBuffer(jsonValue))
+  if err!=nil {
+    log.Warning("Failed to create new POST http request: array address - ", ArrayAddress, ": Error: ", err)
+    return nil, "", "", err
+  }
   req.Header.Add("Content-Type", "application/json")
   req.Header.Add("Accept", "application/json")
   req.Header.Add("Connection", "keep-alive")
   resp, err := client.Do(req)
   if err!=nil {
-    fmt.Println(err)
-    return nil, "", ""
+    log.Warning("Failed to do client POST request: array address - ", ArrayAddress, ": Error: ", err)
+    return nil, "", "", err
   }
+
   var buf []byte
-  buf, _ = ioutil.ReadAll(resp.Body)
+  buf, err = ioutil.ReadAll(resp.Body)
+  if err!=nil{
+    log.Warning("Failed to read response body: array address - ", ArrayAddress, ": Error: ", err)
+    return nil, "", "", err
+  }
+
   var raw map[string]interface{}
   json.Unmarshal(buf, &raw)
   if raw["error"].(map[string]interface{})["code"].(float64)==0 {
     return resp.Cookies()[0], raw["data"].(map[string]interface{})["iBaseToken"].(string), raw["data"].(map[string]interface{})["deviceid"].(string)
   }
-  fmt.Println(raw["error"].(map[string]interface{})["description"].(string))
-  return nil, "", ""
+  err = errors.New(raw["error"].(map[string]interface{})["description"].(string))
+  log.Warning("Array address - ", ArrayAddress, ": Error: ", err)
+  return nil, "", "", err
 }
 
-func Logout(ArrayAddress string, ArrayPort *int, Token *string, DeviceID *string, reqCookie *http.Cookie) float64 {
+func Logout(log *logrus.Logger, ArrayAddress string, ArrayPort *int, Token *string, DeviceID *string, reqCookie *http.Cookie) error {
   urlString := "https://" + ArrayAddress + ":"+ strconv.Itoa(*ArrayPort) + "/deviceManager/rest/" + *DeviceID + "/sessions"
   tr := &http.Transport{
         TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
     }
   client := &http.Client{Transport: tr}
   req, err := http.NewRequest("DELETE", urlString, nil)
+  if err!=nil{
+    log.Warning("Failed to do client DELETE request: array address - ", ArrayAddress, ": Error: ", err)
+    return err
+  }
   req.Header.Add("Content-Type", "application/json")
   req.Header.Add("Accept", "application/json")
   req.Header.Add("Connection", "keep-alive")
@@ -51,14 +70,22 @@ func Logout(ArrayAddress string, ArrayPort *int, Token *string, DeviceID *string
   req.AddCookie(reqCookie)
   resp, err := client.Do(req)
   if err!=nil {
-    return -1
+    log.Warning("Failed to do client DELETE request: array address - ", ArrayAddress, ": Error: ", err)
+    return err
   }
+
   buf, err := ioutil.ReadAll(resp.Body)
-  // TODO: конретезировать ошибки
   if err!=nil {
-    return -1
+    log.Warning("Failed to read response body: array address - ", ArrayAddress, ": Error: ", err)
+    return err
   }
+
   var raw map[string]interface{}
   json.Unmarshal(buf, &raw)
-  return raw["error"].(map[string]interface{})["code"].(float64)
+  if raw["error"].(map[string]interface{})["code"].(float64)!=0 {
+    err = errors.New(raw["error"].(map[string]interface{})["description"].(string))
+    log.Warning("Array address - ", ArrayAddress, ": Error: ", err)
+    return err
+  }
+  return nil
 }

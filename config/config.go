@@ -40,7 +40,7 @@ type TLoggerConfig struct {
 type THuaweiPerfConfig struct {
   Default TDefaultHuaweiPerfConfig
   Groups []TGroupConfig
-  LoggerConfig []TLoggerConfig
+  Loggers []TLoggerConfig
 }
 
 var HuaweiPerfConfig = THuaweiPerfConfig {
@@ -56,20 +56,23 @@ var HuaweiPerfConfig = THuaweiPerfConfig {
   },
 }
 
-func CreateConfig(configPath *string) {
+func CreateConfig(configPath *string) (err error){
   if *configPath!="" {
     buff, err := ioutil.ReadFile(*configPath)
     if err!=nil {
-      fmt.Println("error while read file ", err)
+      fmt.Println("Error while read file ", err)
+      return
     }
     viper.SetConfigType("YAML")
     err = viper.ReadConfig(bytes.NewBuffer(buff))
     if err!=nil {
-      fmt.Println("error while parse file ", err)
+      fmt.Println("Error while parse file ", err)
+      return
     }
     err = viper.Unmarshal(&HuaweiPerfConfig)
     if err!=nil {
-      fmt.Println("error while parse config ", err)
+      fmt.Println("Error while parse config ", err)
+      return
     }
   }
 }
