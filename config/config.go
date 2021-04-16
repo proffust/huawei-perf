@@ -1,46 +1,45 @@
 package config
 
 import(
-  "bytes"
   "io/ioutil"
   "fmt"
-  "github.com/spf13/viper"
+  "gopkg.in/yaml.v2"
 )
 
 type TGraphiteConfig struct {
-  Address string
-  Prefix string
+  Address string `yaml:"address"`
+  Prefix string `yaml:"prefix"`
 }
 
 type TDefaultHuaweiPerfConfig struct {
-  Username string
-  Password string
-  Port int
-  Interval int
-  Graphite TGraphiteConfig
+  Username string `yaml:"username"`
+  Password string `yaml:"password"`
+  Port int `yaml:"port"`
+  Interval int `yaml:"interval"`
+  Graphite TGraphiteConfig `yaml:"graphite"`
 }
 
 type THuaweiArray struct {
-  Name string
-  Address string
+  Name string `yaml:"name"`
+  Addresses []string `yaml:"addresses"`
 }
 
 type TGroupConfig struct {
-  Groupname string
-  Arrays []THuaweiArray
+  Groupname string `yaml:"groupname"`
+  Arrays []THuaweiArray `yaml:"arrays"`
 }
 
 type TLoggerConfig struct {
-  Name string
-  File string
-  Level string
-  Encoding string
+  Name string `yaml:"logger"`
+  File string `yaml:"file"`
+  Level string `yaml:"level"`
+  Encoding string `yaml:"encoding"`
 }
 
 type THuaweiPerfConfig struct {
-  Default TDefaultHuaweiPerfConfig
-  Groups []TGroupConfig
-  LoggerConfig []TLoggerConfig
+  Default TDefaultHuaweiPerfConfig `yaml:"default"`
+  Groups []TGroupConfig `yaml:"groups"`
+  Loggers []TLoggerConfig `yaml:"logging"`
 }
 
 var HuaweiPerfConfig = THuaweiPerfConfig {
@@ -56,20 +55,18 @@ var HuaweiPerfConfig = THuaweiPerfConfig {
   },
 }
 
-func CreateConfig(configPath *string) {
+func CreateConfig(configPath *string) (err error){
   if *configPath!="" {
     buff, err := ioutil.ReadFile(*configPath)
     if err!=nil {
-      fmt.Println("error while read file ", err)
+      fmt.Println("Error while read file ", err)
+      return err
     }
-    viper.SetConfigType("YAML")
-    err = viper.ReadConfig(bytes.NewBuffer(buff))
+    err = yaml.Unmarshal(buff, &HuaweiPerfConfig)
     if err!=nil {
-      fmt.Println("error while parse file ", err)
-    }
-    err = viper.Unmarshal(&HuaweiPerfConfig)
-    if err!=nil {
-      fmt.Println("error while parse config ", err)
+      fmt.Println("Error while parse config ", err)
+      return err
     }
   }
+  return nil
 }
