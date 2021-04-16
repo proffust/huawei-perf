@@ -7,29 +7,37 @@ import (
   "time"
   "runtime"
   //"log"
-//  "net/http"
-//  _ "net/http/pprof"
+  //  "net/http"
+  //  _ "net/http/pprof"
   "strconv"
   "github.com/sirupsen/logrus"
   "os"
+  //"fmt"
+  //"./config"
+  //"./login"
+  //"./getData"
+  "io"
 )
 
 const Version = "0.1.1"
 // TODO: проблема при передаче по ссылке, выяснить почему, продумать передачу дефолтных и уникальных для массива параметров
-func worker(log *logrus.Logger, username *string, password *string, address string, port *int, arrayname string, groupname string) {
+func worker(log *logrus.Logger, username *string, password *string, addresses []string, port *int, arrayname string, groupname string) {
   log.Info("Starting work with array ", arrayname)
-  deviceCookie, deviceToken, deviceID, err := login.Login(log, username, password, address, port)
-  if err==nil {
-    log.Info("Login succesful on ", arrayname, " with username ", *username)
-    getData.GetAllData(log, groupname, arrayname, deviceCookie, &deviceToken,
-                             &deviceID, port, address)
-    if err:=login.Logout(log, address, port, &deviceToken, &deviceID, deviceCookie); err==nil {
-      log.Info("Succesful logout from array ", arrayname)
+  for _, address := range addresses {
+    deviceCookie, deviceToken, deviceID, err := login.Login(log, username, password, address, port)
+    if err==nil {
+      log.Info("Login successful on ", arrayname, " (", address, ") with username '", *username, "'")
+      getData.GetAllData(log, groupname, arrayname, deviceCookie, &deviceToken,
+                               &deviceID, port, address)
+      if err:=login.Logout(log, address, port, &deviceToken, &deviceID, deviceCookie); err==nil {
+        log.Info("Successful logout from array ", arrayname, " (", address, ")")
+      }
+      log.Info("End loop for array ", arrayname, " (", address, ") wait ", strconv.Itoa(config.HuaweiPerfConfig.Default.Interval), " seconds")
+      return
     }
-  } else {
-    log.Warning("Error while login on ", arrayname)
+
+    log.Warning("Error while login on ", arrayname, " (", address,")")
   }
-  log.Info("End loop for array ", arrayname, " wait ", strconv.Itoa(config.HuaweiPerfConfig.Default.Interval), " seconds")
 }
 
 func main() {
@@ -66,6 +74,10 @@ func main() {
     }
   }
 
+  if len(writers)!=0{
+    mw := io.MultiWriter(writers...)
+    setValuesLogrus(log, level, mw, format)
+  }
   //runtime.GOMAXPROCS(runtime.NumCPU())
   runtime.Gosched()
   log.Info("Starting performance monitoring, loaded config, graphite endpoint ", config.HuaweiPerfConfig.Default.Graphite.Address)
@@ -74,7 +86,7 @@ func main() {
   for {
     for _, group := range config.HuaweiPerfConfig.Groups {
       for _, array := range group.Arrays {
-        go worker(log, &config.HuaweiPerfConfig.Default.Username, &config.HuaweiPerfConfig.Default.Password, array.Address,
+        go worker(log, &config.HuaweiPerfConfig.Default.Username, &config.HuaweiPerfConfig.Default.Password, array.Addresses,
                   &config.HuaweiPerfConfig.Default.Port, array.Name, group.Groupname)
       }
     }

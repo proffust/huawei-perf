@@ -4,6 +4,7 @@ import (
   "github.com/proffust/huawei-perf/config"
   //"log"
   "github.com/sirupsen/logrus"
+  //"../config"
 )
 
 func SendObjectPerfs(log *logrus.Logger, PerfMap map[string]int) int {

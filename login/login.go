@@ -23,7 +23,7 @@ func Login(log *logrus.Logger, ArrayUsername *string, ArrayPassword *string, Arr
   jsonValue, _ := json.Marshal(data)
   req, err := http.NewRequest("POST", urlString, bytes.NewBuffer(jsonValue))
   if err!=nil {
-    log.Warning("Failed to create new POST http request: array address - ", ArrayAddress, ": Error: ", err)
+    log.Warning("Failed to create new http request: array address - ", ArrayAddress, ": Error: ", err)
     return nil, "", "", err
   }
   req.Header.Add("Content-Type", "application/json")
@@ -31,7 +31,7 @@ func Login(log *logrus.Logger, ArrayUsername *string, ArrayPassword *string, Arr
   req.Header.Add("Connection", "keep-alive")
   resp, err := client.Do(req)
   if err!=nil {
-    log.Warning("Failed to do client POST request: array address - ", ArrayAddress, ": Error: ", err)
+    log.Warning("Failed to do client request: array address - ", ArrayAddress, ": Error: ", err)
     return nil, "", "", err
   }
 
@@ -45,7 +45,7 @@ func Login(log *logrus.Logger, ArrayUsername *string, ArrayPassword *string, Arr
   var raw map[string]interface{}
   json.Unmarshal(buf, &raw)
   if raw["error"].(map[string]interface{})["code"].(float64)==0 {
-    return resp.Cookies()[0], raw["data"].(map[string]interface{})["iBaseToken"].(string), raw["data"].(map[string]interface{})["deviceid"].(string)
+    return resp.Cookies()[0], raw["data"].(map[string]interface{})["iBaseToken"].(string), raw["data"].(map[string]interface{})["deviceid"].(string), nil
   }
   err = errors.New(raw["error"].(map[string]interface{})["description"].(string))
   log.Warning("Array address - ", ArrayAddress, ": Error: ", err)
@@ -60,7 +60,7 @@ func Logout(log *logrus.Logger, ArrayAddress string, ArrayPort *int, Token *stri
   client := &http.Client{Transport: tr}
   req, err := http.NewRequest("DELETE", urlString, nil)
   if err!=nil{
-    log.Warning("Failed to do client DELETE request: array address - ", ArrayAddress, ": Error: ", err)
+    log.Warning("Failed to do client request: array address - ", ArrayAddress, ": Error: ", err)
     return err
   }
   req.Header.Add("Content-Type", "application/json")
@@ -70,7 +70,7 @@ func Logout(log *logrus.Logger, ArrayAddress string, ArrayPort *int, Token *stri
   req.AddCookie(reqCookie)
   resp, err := client.Do(req)
   if err!=nil {
-    log.Warning("Failed to do client DELETE request: array address - ", ArrayAddress, ": Error: ", err)
+    log.Warning("Failed to do client request: array address - ", ArrayAddress, ": Error: ", err)
     return err
   }
 

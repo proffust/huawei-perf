@@ -11,6 +11,7 @@ import (
   "reflect"
   "github.com/sirupsen/logrus"
   "errors"
+  //"../sendData"
 )
 // TODO: конретезировать ошибки во всех методах
 var sections = []string{"StoragePool", "Lun", "Controller", "fc_port"}
@@ -23,10 +24,6 @@ func GetAllData(log *logrus.Logger, Groupname string, Devicename string, DeviceC
   DeviceToken *string, DeviceID *string, DevicePort *int, DeviceAddress string) {
   for _, section := range sections {
     metrics, err := getSectionData(log, Groupname, Devicename, &section, DeviceCookie, DeviceToken, DeviceID, DevicePort, DeviceAddress)
-    /*if err!=nil{
-      log.Warning("Failed to get ", section, " metrics, device: ", Devicename, "; Error: ", err)
-      continue
-    }*/
     if err==nil {
       go sendData.SendObjectPerfs(log, metrics)
     }
@@ -74,7 +71,7 @@ func getSectionIDs(log *logrus.Logger, Section *string, Devicename string, Devic
   }
 
   if len(ret["data"].([]interface{}))==0 {
-    err = errors.New("getSectionIDs: no data in the section ", *Section, " on the device ", DeviceAddress)
+    err = errors.New("getSectionIDs: no data in the section "+*Section+" on the device "+DeviceAddress)
     log.Info("Error: ", err)
     return -1, nil, err
   }
@@ -119,7 +116,7 @@ func getSectionPerfData(log *logrus.Logger, Section *string, Devicename string, 
   req.AddCookie(DeviceCookie)
   resp, err := client.Do(req)
   if err!=nil {
-    log.Warning("Failed to do client GET request, device: ", Devicename, ", section: ",  *Section, "; Error: ", err)
+    log.Warning("Failed to do client request, device: ", Devicename, ", section: ",  *Section, "; Error: ", err)
     return nil, nil, err
   }
 
@@ -132,7 +129,7 @@ func getSectionPerfData(log *logrus.Logger, Section *string, Devicename string, 
   var ret map[string]interface{}
   json.Unmarshal(body, &ret)
   if reflect.TypeOf(ret["data"])==reflect.TypeOf(ret["error"]) {
-    err = errors.New("getSectionPerfData: no static data in the section ", *Section, " on the device ", Devicename)
+    err = errors.New("getSectionPerfData: no static data in the section "+*Section+" on the device "+Devicename)
     log.Info("Error: ", err)
     return nil, nil, err
   }
@@ -171,7 +168,7 @@ func getSectionData(log *logrus.Logger, Groupname string, Devicename string, Sec
       perfIDs := "22,25,28,370,384,385,23,26,93,95,19"
       for name, id := range sectionNameIDs {
         object := strconv.Itoa(sectionID) + ":" + id
-        perfArray, metricArray := getSectionPerfData(log, Section, Devicename, DeviceCookie, DeviceToken, DeviceID, DevicePort, DeviceAddress, &perfIDs,
+        perfArray, metricArray, err := getSectionPerfData(log, Section, Devicename, DeviceCookie, DeviceToken, DeviceID, DevicePort, DeviceAddress, &perfIDs,
                                       &object)
         if err!=nil {
           return result, err
@@ -186,7 +183,7 @@ func getSectionData(log *logrus.Logger, Groupname string, Devicename string, Sec
       perfIDs := "22,25,28,370,384,385,23,26,93,95,68,69,110,120,19"
       for name, id := range sectionNameIDs {
         object := strconv.Itoa(sectionID) + ":" + id
-        perfArray, metricArray := getSectionPerfData(log, Section, Devicename, DeviceCookie, DeviceToken, DeviceID, DevicePort, DeviceAddress, &perfIDs,
+        perfArray, metricArray, err := getSectionPerfData(log, Section, Devicename, DeviceCookie, DeviceToken, DeviceID, DevicePort, DeviceAddress, &perfIDs,
                                         &object)
         if err!=nil {
           return result, err
@@ -202,8 +199,12 @@ func getSectionData(log *logrus.Logger, Groupname string, Devicename string, Sec
       perfIDs := "22,25,28,370,384,385,23,26"
       for name, id := range sectionNameIDs {
         object := strconv.Itoa(sectionID) + ":" + id
-        perfArray, metricArray := getSectionPerfData(log, Section, Devicename, DeviceCookie, DeviceToken, DeviceID, DevicePort, DeviceAddress, &perfIDs,
+        perfArray, metricArray, err := getSectionPerfData(log, Section, Devicename, DeviceCookie, DeviceToken, DeviceID, DevicePort, DeviceAddress, &perfIDs,
                                         &object)
+        if err!=nil {
+          return result, err
+        }
+
         for k,v := range metricArray {
           result[Groupname+"."+Devicename+"."+*Section+"."+name+"."+statisticNameID[v]], _ = strconv.Atoi(perfArray[k])
         }
