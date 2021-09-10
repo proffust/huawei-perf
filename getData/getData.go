@@ -4,7 +4,7 @@ import (
   "strconv"
   "crypto/tls"
   "encoding/json"
-  //"fmt"
+  "fmt"
   "io/ioutil"
   "strings"
   "github.com/proffust/huawei-perf/sendData"
@@ -26,13 +26,13 @@ func GetAllData(log *logrus.Logger, Groupname string, Devicename string, DeviceC
     metrics, err := getSectionData(log, Groupname, Devicename, &section, DeviceCookie, DeviceToken, DeviceID, DevicePort, DeviceAddress)
     if err==nil {
       go sendData.SendObjectPerfs(log, metrics)
+      //fmt.Println(metrics)
     }
   }
 }
 
-func getSectionIDs(log *logrus.Logger, Section *string, Devicename string, DeviceCookie *http.Cookie,
-  DeviceToken *string, DeviceID *string, DevicePort *int, DeviceAddress string) (int, (map[string]string), error) {
-
+func getDataFromAPI(log *logrus.Logger, Section *string, Devicename string, DeviceCookie *http.Cookie,
+  DeviceToken *string, DeviceID *string, DevicePort *int, DeviceAddress string) (map[string]interface{}, error){
   tr := &http.Transport{
         TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
   }
@@ -42,7 +42,7 @@ func getSectionIDs(log *logrus.Logger, Section *string, Devicename string, Devic
   req, err := http.NewRequest("GET", urlString, nil)
   if err!=nil {
     log.Warning("Failed to create GET http request, device: ", Devicename, ", section: ",  *Section, "; Error: ", err)
-    return -1, nil, err
+    return nil, err
   }
   req.Header.Add("Content-Type", "application/json")
   req.Header.Add("Accept", "application/json")
@@ -52,14 +52,13 @@ func getSectionIDs(log *logrus.Logger, Section *string, Devicename string, Devic
   resp, err := client.Do(req)
   if err!=nil {
     log.Warning("Failed to do client GET request, device: ", Devicename, ", section: ",  *Section, "; Error: ", err)
-    return -1, nil, err
+    return nil, err
   }
 
-  result:= make(map[string]string)
   body, err := ioutil.ReadAll(resp.Body)
   if err!=nil {
     log.Warning("Failed to read response body, device: ", Devicename, ", section: ",  *Section, "; Error: ", err)
-    return -1, nil, err
+    return nil, err
   }
 
   var ret map[string]interface{}
@@ -67,27 +66,65 @@ func getSectionIDs(log *logrus.Logger, Section *string, Devicename string, Devic
   if ret["error"].(map[string]interface{})["code"].(float64)!=0 {
     err = errors.New(ret["error"].(map[string]interface{})["description"].(string))
     log.Warning("Device: ", Devicename, ", section: ",  *Section, "; Error: ", err)
-    return -1, nil, err
+    return nil, err
+  }
+  if fmt.Sprintf("%v", reflect.TypeOf(ret["data"]))=="[]interface{}" {
+    if len(ret["data"].([]interface{}))==0 {
+      err = errors.New("getSectionIDs: no data in the section "+*Section+" on the device "+DeviceAddress)
+      log.Info("Error: ", err)
+      return nil, err
+    }
   }
 
-  if len(ret["data"].([]interface{}))==0 {
-    err = errors.New("getSectionIDs: no data in the section "+*Section+" on the device "+DeviceAddress)
-    log.Info("Error: ", err)
+  return ret, nil
+}
+
+func getSectionIDs(log *logrus.Logger, Section *string, Devicename string, DeviceCookie *http.Cookie,
+  DeviceToken *string, DeviceID *string, DevicePort *int, DeviceAddress string) (int, (map[string]map[string]string), error) {
+  result:= make(map[string]map[string]string)
+  ret, err := getDataFromAPI(log, Section, Devicename, DeviceCookie, DeviceToken, DeviceID, DevicePort, DeviceAddress)
+  if err!=nil {
     return -1, nil, err
   }
 
   objectID := int(ret["data"].([]interface{})[0].(map[string]interface{})["TYPE"].(float64))
   for _, object := range ret["data"].([]interface{}) {
+    res_obj := make(map[string]string)
     if *Section=="Disk" {
       ID, _ := object.(map[string]interface{})["ID"].(string)
-      result[object.(map[string]interface{})["LOCATION"].(string)] = ID
+      res_obj["id"] = ID
+      result[object.(map[string]interface{})["LOCATION"].(string)] = res_obj
     } else {
       if *Section=="Lun" {
         ID, _ := object.(map[string]interface{})["ID"].(string)
-        result[object.(map[string]interface{})["PARENTNAME"].(string)+"."+object.(map[string]interface{})["NAME"].(string)] = ID
+        sector_size_lun, _ := strconv.Atoi(object.(map[string]interface{})["SECTORSIZE"].(string))
+        total_capacity, _ := strconv.Atoi(object.(map[string]interface{})["CAPACITY"].(string))
+        used_capacity, _ := strconv.Atoi(object.(map[string]interface{})["ALLOCCAPACITY"].(string))
+        res_obj["total_capacity"] = strconv.Itoa(total_capacity * sector_size_lun)
+        res_obj["used_capacity"] = strconv.Itoa(used_capacity * sector_size_lun)
+        res_obj["id"] = ID
+        result[object.(map[string]interface{})["PARENTID"].(string)+"."+object.(map[string]interface{})["PARENTNAME"].(string)+"."+ID+"."+object.(map[string]interface{})["NAME"].(string)] = res_obj
       } else {
-        ID, _ := object.(map[string]interface{})["ID"].(string)
-        result[object.(map[string]interface{})["NAME"].(string)] = ID
+        if *Section=="StoragePool" {
+          //надо получить размер сектора
+          sec := string("system/")
+          ret_, err := getDataFromAPI(log, &sec, Devicename, DeviceCookie, DeviceToken, DeviceID, DevicePort, DeviceAddress)
+          if err!=nil{
+            return -1, nil, err
+          }
+          sector_size, _ := strconv.Atoi(string(ret_["data"].(map[string]interface{})["SECTORSIZE"].(string)))
+          ID, _ := object.(map[string]interface{})["ID"].(string)
+          res_obj["id"] = ID
+          pool_total_capacity, _ := strconv.Atoi(object.(map[string]interface{})["USERTOTALCAPACITY"].(string))
+          pool_used_capacity, _ := strconv.Atoi(object.(map[string]interface{})["LUNCONFIGEDCAPACITY"].(string))
+          res_obj["total_capacity"] = strconv.Itoa(pool_total_capacity*sector_size)
+          res_obj["used_capacity"] = strconv.Itoa(pool_used_capacity*sector_size)
+          result[object.(map[string]interface{})["NAME"].(string)] = res_obj
+        } else {
+          ID, _ := object.(map[string]interface{})["ID"].(string)
+          res_obj["id"] = ID
+          result[object.(map[string]interface{})["NAME"].(string)] = res_obj
+        }
       }
     }
   }
@@ -151,7 +188,8 @@ func getSectionData(log *logrus.Logger, Groupname string, Devicename string, Sec
   switch *Section {
     case "StoragePool":
       perfIDs := "22,25,28,370,384,385,23,26"
-      for name, id := range sectionNameIDs {
+      for name, section_data := range sectionNameIDs {
+        id := section_data["id"]
         object := strconv.Itoa(sectionID) + ":" + id
         perfArray, metricArray, err := getSectionPerfData(log, Section, Devicename, DeviceCookie, DeviceToken, DeviceID, DevicePort, DeviceAddress, &perfIDs,
                                         &object)
@@ -159,20 +197,27 @@ func getSectionData(log *logrus.Logger, Groupname string, Devicename string, Sec
           return result, err
         }
 
+        result[Groupname+"."+Devicename+"."+*Section+"."+id+"."+name+"."+"total_capacity"], _ = strconv.Atoi(section_data["total_capacity"])
+        result[Groupname+"."+Devicename+"."+*Section+"."+id+"."+name+"."+"used_capacity"], _ = strconv.Atoi(section_data["used_capacity"])
+
         for k,v := range metricArray {
-          result[Groupname+"."+Devicename+"."+*Section+"."+name+"."+statisticNameID[v]], _ = strconv.Atoi(perfArray[k])
+          result[Groupname+"."+Devicename+"."+*Section+"."+id+"."+name+"."+statisticNameID[v]], _ = strconv.Atoi(perfArray[k])
         }
       }
       return result, nil
     case "Lun":
       perfIDs := "22,25,28,370,384,385,23,26,93,95,19"
-      for name, id := range sectionNameIDs {
+      for name, section_data := range sectionNameIDs {
+        id := section_data["id"]
         object := strconv.Itoa(sectionID) + ":" + id
         perfArray, metricArray, err := getSectionPerfData(log, Section, Devicename, DeviceCookie, DeviceToken, DeviceID, DevicePort, DeviceAddress, &perfIDs,
                                       &object)
         if err!=nil {
           return result, err
         }
+
+        result[Groupname+"."+Devicename+"."+*Section+"."+name+"."+"used_capacity"], _ = strconv.Atoi(section_data["used_capacity"])
+        result[Groupname+"."+Devicename+"."+*Section+"."+name+"."+"total_capacity"], _ = strconv.Atoi(section_data["total_capacity"])
 
         for k,v := range metricArray {
           result[Groupname+"."+Devicename+"."+*Section+"."+name+"."+statisticNameID[v]], _ = strconv.Atoi(perfArray[k])
@@ -181,7 +226,8 @@ func getSectionData(log *logrus.Logger, Groupname string, Devicename string, Sec
       return result, nil
     case "Controller":
       perfIDs := "22,25,28,370,384,385,23,26,93,95,68,69,110,120,19"
-      for name, id := range sectionNameIDs {
+      for name, section_data := range sectionNameIDs {
+        id := section_data["id"]
         object := strconv.Itoa(sectionID) + ":" + id
         perfArray, metricArray, err := getSectionPerfData(log, Section, Devicename, DeviceCookie, DeviceToken, DeviceID, DevicePort, DeviceAddress, &perfIDs,
                                         &object)
@@ -197,7 +243,8 @@ func getSectionData(log *logrus.Logger, Groupname string, Devicename string, Sec
     // TODO: нули в тропуте, выяснить почему
     case "fc_port":
       perfIDs := "22,25,28,370,384,385,23,26"
-      for name, id := range sectionNameIDs {
+      for name, section_data := range sectionNameIDs {
+        id := section_data["id"]
         object := strconv.Itoa(sectionID) + ":" + id
         perfArray, metricArray, err := getSectionPerfData(log, Section, Devicename, DeviceCookie, DeviceToken, DeviceID, DevicePort, DeviceAddress, &perfIDs,
                                         &object)
