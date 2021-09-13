@@ -12,7 +12,6 @@ func SendObjectPerfs(log *logrus.Logger, PerfMap map[string]int) int {
     return -1
   }
   Connection := graphigo.NewClient(config.HuaweiPerfConfig.Default.Graphite.Address)
-  Connection.Prefix = config.HuaweiPerfConfig.Default.Graphite.Prefix
   Connection.Connect()
   for name, value := range PerfMap {
     err := Connection.Send(graphigo.Metric{Name: name, Value: value})

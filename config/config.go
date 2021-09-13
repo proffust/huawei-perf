@@ -8,7 +8,6 @@ import(
 
 type TGraphiteConfig struct {
   Address string `yaml:"address"`
-  Prefix string `yaml:"prefix"`
 }
 
 type TDefaultHuaweiPerfConfig struct {
@@ -50,7 +49,6 @@ var HuaweiPerfConfig = THuaweiPerfConfig {
     Interval: 60,
     Graphite: TGraphiteConfig {
       Address: "0.0.0.0:2003",
-      Prefix: "huawei.perf",
     },
   },
 }

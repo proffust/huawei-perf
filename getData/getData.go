@@ -197,11 +197,11 @@ func getSectionData(log *logrus.Logger, Groupname string, Devicename string, Sec
           return result, err
         }
 
-        result[Groupname+"."+Devicename+"."+*Section+"."+id+"."+name+"."+"total_capacity"], _ = strconv.Atoi(section_data["total_capacity"])
-        result[Groupname+"."+Devicename+"."+*Section+"."+id+"."+name+"."+"used_capacity"], _ = strconv.Atoi(section_data["used_capacity"])
+        result["huawei.capacity."+Groupname+"."+Devicename+"."+*Section+"."+id+"."+name+"."+"total_capacity"], _ = strconv.Atoi(section_data["total_capacity"])
+        result["huawei.capacity."+Groupname+"."+Devicename+"."+*Section+"."+id+"."+name+"."+"used_capacity"], _ = strconv.Atoi(section_data["used_capacity"])
 
         for k,v := range metricArray {
-          result[Groupname+"."+Devicename+"."+*Section+"."+id+"."+name+"."+statisticNameID[v]], _ = strconv.Atoi(perfArray[k])
+          result["huawei.perf."+Groupname+"."+Devicename+"."+*Section+"."+id+"."+name+"."+statisticNameID[v]], _ = strconv.Atoi(perfArray[k])
         }
       }
       return result, nil
@@ -216,11 +216,11 @@ func getSectionData(log *logrus.Logger, Groupname string, Devicename string, Sec
           return result, err
         }
 
-        result[Groupname+"."+Devicename+"."+*Section+"."+name+"."+"used_capacity"], _ = strconv.Atoi(section_data["used_capacity"])
-        result[Groupname+"."+Devicename+"."+*Section+"."+name+"."+"total_capacity"], _ = strconv.Atoi(section_data["total_capacity"])
+        result["huawei.capacity."+Groupname+"."+Devicename+"."+*Section+"."+name+"."+"used_capacity"], _ = strconv.Atoi(section_data["used_capacity"])
+        result["huawei.capacity."+Groupname+"."+Devicename+"."+*Section+"."+name+"."+"total_capacity"], _ = strconv.Atoi(section_data["total_capacity"])
 
         for k,v := range metricArray {
-          result[Groupname+"."+Devicename+"."+*Section+"."+name+"."+statisticNameID[v]], _ = strconv.Atoi(perfArray[k])
+          result["huawei.perf."+Groupname+"."+Devicename+"."+*Section+"."+name+"."+statisticNameID[v]], _ = strconv.Atoi(perfArray[k])
         }
       }
       return result, nil
@@ -236,7 +236,7 @@ func getSectionData(log *logrus.Logger, Groupname string, Devicename string, Sec
         }
 
         for k,v := range metricArray {
-          result[Groupname+"."+Devicename+"."+*Section+"."+Devicename +"_"+name+"."+statisticNameID[v]], _ = strconv.Atoi(perfArray[k])
+          result["huawei.perf."+Groupname+"."+Devicename+"."+*Section+"."+Devicename +"_"+name+"."+statisticNameID[v]], _ = strconv.Atoi(perfArray[k])
         }
       }
       return result, nil
@@ -253,7 +253,7 @@ func getSectionData(log *logrus.Logger, Groupname string, Devicename string, Sec
         }
 
         for k,v := range metricArray {
-          result[Groupname+"."+Devicename+"."+*Section+"."+name+"."+statisticNameID[v]], _ = strconv.Atoi(perfArray[k])
+          result["huawei.perf."+Groupname+"."+Devicename+"."+*Section+"."+name+"."+statisticNameID[v]], _ = strconv.Atoi(perfArray[k])
         }
       }
       return result, nil
