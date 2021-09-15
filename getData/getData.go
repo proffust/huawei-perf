@@ -68,7 +68,8 @@ func getDataFromAPI(log *logrus.Logger, Section *string, Devicename string, Devi
     log.Warning("Device: ", Devicename, ", section: ",  *Section, "; Error: ", err)
     return nil, err
   }
-  if fmt.Sprintf("%v", reflect.TypeOf(ret["data"]))=="[]interface{}" {
+
+  if fmt.Sprintf("%v", reflect.TypeOf(ret["data"]))=="[]interface {}" {
     if len(ret["data"].([]interface{}))==0 {
       err = errors.New("getSectionIDs: no data in the section "+*Section+" on the device "+DeviceAddress)
       log.Info("Error: ", err)
