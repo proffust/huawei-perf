@@ -14,11 +14,11 @@ import (
   //"../sendData"
 )
 // TODO: конретезировать ошибки во всех методах
-var sections = []string{"StoragePool", "Lun", "Controller", "fc_port"}
+var sections = []string{"StoragePool", "Lun", "Controller", "fc_port", "disk"}
 var statisticNameID = map[string]string{"22":"io_rate", "25":"read_io", "28":"write_io", "23":"read", "26":"write", "370":"resp_t", "384":"resp_t_r",
                                         "385":"resp_t_w", "93":"r_cache_hit", "95":"w_cache_hit", "68":"cpu_usage", "69":"cache_usage",
                                         "110":"r_cache_usage", "120":"w_cache_usage", "19":"queue_length", "182":"io_rate", "232":"read_io",
-                                        "123":"read", "464":"resp_t_r", "233":"write_io", "124":"write", "465":"resp_t_w", "29":"resp_t"}
+                                        "123":"read", "464":"resp_t_r", "233":"write_io", "124":"write", "465":"resp_t_w", "29":"resp_t", "18": "usage"}
 
 func GetAllData(log *logrus.Logger, Groupname string, Devicename string, DeviceCookie *http.Cookie,
   DeviceToken *string, DeviceID *string, DevicePort *int, DeviceAddress string) {
@@ -78,7 +78,7 @@ func getSectionIDs(log *logrus.Logger, Section *string, Devicename string, Devic
 
   objectID := int(ret["data"].([]interface{})[0].(map[string]interface{})["TYPE"].(float64))
   for _, object := range ret["data"].([]interface{}) {
-    if *Section=="Disk" {
+    if *Section=="disk" {
       ID, _ := object.(map[string]interface{})["ID"].(string)
       result[object.(map[string]interface{})["LOCATION"].(string)] = ID
     } else {
@@ -210,6 +210,22 @@ func getSectionData(log *logrus.Logger, Groupname string, Devicename string, Sec
         }
       }
       return result, nil
-    }
+    case "disk":
+      perfIDs := "18"
+      for name, id := range sectionNameIDs {
+        object := strconv.Itoa(sectionID) + ":" + id
+        perfArray, metricArray, err := getSectionPerfData(log, Section, Devicename, DeviceCookie, DeviceToken, DeviceID, DevicePort, DeviceAddress, &perfIDs,
+                                        &object)
+        if err!=nil {
+          return result, err
+        }
+        name := strings.Replace(".", "_", -1)
+        name := strings.Replace(" ", "_", -1)
+        for k,v := range metricArray {
+          result[Groupname+"."+Devicename+"."+*Section+"."+name+"."+statisticNameID[v]], _ = strconv.Atoi(perfArray[k])
+        }
+      }
+      return result, nil
+  }
   return result, nil
 }
