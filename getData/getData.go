@@ -219,8 +219,8 @@ func getSectionData(log *logrus.Logger, Groupname string, Devicename string, Sec
         if err!=nil {
           return result, err
         }
-        name := strings.Replace(".", "_", -1)
-        name := strings.Replace(" ", "_", -1)
+        name = strings.Replace(name, ".", "_", -1)
+        name = strings.Replace(name, " ", "_", -1)
         for k,v := range metricArray {
           result[Groupname+"."+Devicename+"."+*Section+"."+name+"."+statisticNameID[v]], _ = strconv.Atoi(perfArray[k])
         }
